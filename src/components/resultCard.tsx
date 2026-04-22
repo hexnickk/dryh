@@ -1,20 +1,17 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-type ResutlCardProps = {
-  name: string;
-  rolls: {
-    discipline: number[];
-    exhaustion: number[];
-    madness: number[];
-    pain: number[];
-  };
-};
+import type { DiceRollMessage, DiceRolls } from "@/lib/socket";
 
-type Entries<T> = {
-  [K in keyof T]: [K, T[K]];
-}[keyof T][];
+type ResultCardProps = Pick<DiceRollMessage, "name" | "rolls">;
 
-const ResultCard = ({ name, rolls }: ResutlCardProps) => {
+const DOMINANCE_HIERARCHY: Array<keyof DiceRolls> = [
+  "discipline",
+  "madness",
+  "exhaustion",
+  "pain",
+];
+
+const ResultCard = ({ name, rolls }: ResultCardProps) => {
   const playerSuccesses = [
     ...rolls.discipline,
     ...rolls.exhaustion,
@@ -23,8 +20,8 @@ const ResultCard = ({ name, rolls }: ResutlCardProps) => {
 
   const masterSuccesses = rolls.pain.filter((die) => die <= 3).length;
 
-  const calculateDominant = (): string => {
-    const entries = Object.entries(rolls) as Entries<typeof rolls>;
+  const calculateDominant = (): keyof DiceRolls => {
+    const entries = DOMINANCE_HIERARCHY.map((key) => [key, rolls[key]] as const);
 
     entries.sort((a, b) => {
       const [keyA, rollsA] = a;
@@ -40,16 +37,15 @@ const ResultCard = ({ name, rolls }: ResutlCardProps) => {
 
       if (countA !== countB) return countB - countA;
 
-      const sortedA = rollsA.sort((x, y) => y - x);
-      const sortedB = rollsB.sort((x, y) => y - x);
+      const sortedA = [...rollsA].sort((x, y) => y - x);
+      const sortedB = [...rollsB].sort((x, y) => y - x);
 
       for (let i = 0; i < Math.max(sortedA.length, sortedB.length); i++) {
         if (sortedA[i] !== sortedB[i])
           return (sortedB[i] || 0) - (sortedA[i] || 0);
       }
 
-      const hierarchy = ["discipline", "madness", "exhaustion", "pain"];
-      return hierarchy.indexOf(keyA) - hierarchy.indexOf(keyB);
+      return DOMINANCE_HIERARCHY.indexOf(keyA) - DOMINANCE_HIERARCHY.indexOf(keyB);
     });
 
     return entries[0][0];
@@ -75,25 +71,29 @@ const ResultCard = ({ name, rolls }: ResutlCardProps) => {
         </div>
         <div className="mt-4">
           <h4 className="font-semibold mb-2">Значения кубиков:</h4>
-          {Object.entries(rolls).map(([key, rolls]) => (
-            <div key={key} className="flex items-center space-x-2">
-              <span className="font-medium capitalize">{key}:</span>
-              <div className="flex flex-wrap gap-1">
-                {(rolls as number[]).map((roll, index) => (
-                  <span
-                    key={index}
-                    className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-sm font-semibold ${
-                      roll <= 3
-                        ? "bg-orange-700 text-white"
-                        : "bg-primary text-primary-foreground"
-                    }`}
-                  >
-                    {roll}
-                  </span>
-                ))}
+          {DOMINANCE_HIERARCHY.map((key) => {
+            const rollValues = rolls[key];
+
+            return (
+              <div key={key} className="flex items-center space-x-2">
+                <span className="font-medium capitalize">{key}:</span>
+                <div className="flex flex-wrap gap-1">
+                  {rollValues.map((roll, index) => (
+                    <span
+                      key={index}
+                      className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-sm font-semibold ${
+                        roll <= 3
+                          ? "bg-orange-700 text-white"
+                          : "bg-primary text-primary-foreground"
+                      }`}
+                    >
+                      {roll}
+                    </span>
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </CardContent>
     </Card>

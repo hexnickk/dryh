@@ -3,13 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "web:dev": "next dev",
-    "web:build": "next build",
-    "web:start": "next start",
-    "web:lint": "next lint",
-    "api:dev": "tsx --watch server/index.ts",
-    "api:start": "tsx server/index.ts",
-    "build": "npm run web:build"
+    "dev": "NODE_ENV=development tsx watch --exclude .next --exclude node_modules server/index.ts",
+    "build": "next build",
+    "start": "NODE_ENV=production tsx server/index.ts",
+    "lint": "next lint"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.1.2",
@@ -25,7 +22,8 @@
     "socket.io": "^4.8.1",
     "socket.io-client": "^4.8.1",
     "tailwind-merge": "^2.5.4",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "tsx": "^4.21.0"
   },
   "devDependencies": {
     "@types/node": "^20",
@@ -35,7 +33,6 @@
     "eslint-config-next": "15.0.3",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
-    "tsx": "^4.19.2",
     "typescript": "^5"
   }
 }
