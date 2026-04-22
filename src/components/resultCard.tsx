@@ -11,6 +11,13 @@ const DOMINANCE_HIERARCHY: Array<keyof DiceRolls> = [
   "pain",
 ];
 
+const DICE_LABELS: Record<keyof DiceRolls, string> = {
+  discipline: "Дисциплина",
+  madness: "Безумие",
+  exhaustion: "Истощение",
+  pain: "Боль",
+};
+
 const ResultCard = ({ name, rolls }: ResultCardProps) => {
   const playerSuccesses = [
     ...rolls.discipline,
@@ -67,7 +74,7 @@ const ResultCard = ({ name, rolls }: ResultCardProps) => {
           <div>Успехи Мастера: {masterSuccesses}</div>
         </div>
         <div>
-          <strong>Доминанта:</strong> {dominant}
+          <strong>Доминанта:</strong> {DICE_LABELS[dominant]}
         </div>
         <div className="mt-4">
           <h4 className="font-semibold mb-2">Значения кубиков:</h4>
@@ -76,7 +83,7 @@ const ResultCard = ({ name, rolls }: ResultCardProps) => {
 
             return (
               <div key={key} className="flex items-center space-x-2">
-                <span className="font-medium capitalize">{key}:</span>
+                <span className="font-medium">{DICE_LABELS[key]}:</span>
                 <div className="flex flex-wrap gap-1">
                   {rollValues.map((roll, index) => (
                     <span

@@ -31,8 +31,29 @@ interface Player {
   begi: boolean[];
 }
 
-const createPlayer = (): Player => ({
-  id: nanoid(),
+type NumericPlayerField = "discipline" | "madness" | "exhaustion" | "pain";
+type CheckboxPlayerField = "bei" | "begi";
+
+const PRIMARY_DICE_FIELDS: Array<{ label: string; field: NumericPlayerField }> = [
+  { label: "Дисциплина", field: "discipline" },
+  { label: "Безумие", field: "madness" },
+];
+
+const SECONDARY_DICE_FIELDS: Array<{
+  label: string;
+  field: NumericPlayerField;
+}> = [
+  { label: "Истощение", field: "exhaustion" },
+  { label: "Боль", field: "pain" },
+];
+
+const parseDiceCount = (value: string) => {
+  const parsedValue = Number.parseInt(value, 10);
+  return Number.isNaN(parsedValue) ? 0 : Math.max(0, parsedValue);
+};
+
+const createPlayer = (id: string): Player => ({
+  id,
   name: "",
   discipline: 0,
   exhaustion: 0,
@@ -45,11 +66,12 @@ const createPlayer = (): Player => ({
 });
 
 const DiceRollCalculator = () => {
-  const [players, setPlayers] = useState<Player[]>([createPlayer()]);
+  const [players, setPlayers] = useState<Player[]>(() => [createPlayer("player-1")]);
   const [chat, setChat] = useState<DiceRollMessage[]>([]);
   const socketRef = useRef<
     Socket<ServerToClientEvents, ClientToServerEvents> | null
   >(null);
+  const nextPlayerIdRef = useRef(2);
 
   const appendMessage = useCallback((message: DiceRollMessage) => {
     setChat((previous) =>
@@ -84,7 +106,8 @@ const DiceRollCalculator = () => {
     );
 
   const addPlayer = () => {
-    setPlayers((currentPlayers) => [...currentPlayers, createPlayer()]);
+    const nextPlayerId = `player-${nextPlayerIdRef.current++}`;
+    setPlayers((currentPlayers) => [...currentPlayers, createPlayer(nextPlayerId)]);
   };
 
   const updatePlayer = <K extends keyof Player>(
@@ -96,6 +119,26 @@ const DiceRollCalculator = () => {
       currentPlayers.map((player) =>
         player.id === id ? { ...player, [field]: value } : player
       )
+    );
+  };
+
+  const updatePlayerCheckbox = (
+    id: string,
+    field: CheckboxPlayerField,
+    index: number,
+    checked: boolean
+  ) => {
+    setPlayers((currentPlayers) =>
+      currentPlayers.map((player) => {
+        if (player.id !== id) return player;
+
+        return {
+          ...player,
+          [field]: player[field].map((value, currentIndex) =>
+            currentIndex === index ? checked : value
+          ),
+        };
+      })
     );
   };
 
@@ -133,121 +176,170 @@ const DiceRollCalculator = () => {
 
         <div className="grid lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2 grid md:grid-cols-2 gap-4">
-                {players.map((player) => (
-                  <Card key={player.id} className="p-3">
-                    <div className="space-y-2">
-                      <div className="grid grid-cols-2 items-center gap-2">
-                        <Label htmlFor={`name-${player.id}`} className="text-sm">Имя игрока</Label>
-                        <Input
-                          id={`name-${player.id}`}
-                          value={player.name}
-                          onChange={(e) => updatePlayer(player.id, 'name', e.target.value)}
-                          className="h-8"
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 items-center gap-2">
-                        <Label htmlFor={`exhaustion-${player.id}`} className="text-sm">Навык истощения</Label>
-                        <Textarea
-                          id={`exhaustion-${player.id}`}
-                          value={player.exhaustionSkill}
-                          onChange={(e) => updatePlayer(player.id, 'exhaustionSkill', e.target.value)}
-                          className="min-h-[40px] h-10 resize-none"
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 items-center gap-2">
-                        <Label htmlFor={`madness-${player.id}`} className="text-sm">Навык Безумия</Label>
-                        <Textarea
-                          id={`madness-${player.id}`}
-                          value={player.madnessSkill}
-                          onChange={(e) => updatePlayer(player.id, 'madnessSkill', e.target.value)}
-                          className="min-h-[40px] h-10 resize-none"
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 items-center gap-2">
-                        <Label htmlFor={`bei-${player.id}`} className="text-sm">Бей</Label>
-                        <div className="flex flex-row gap-2">
-                          {player.bei.map((checked, idx) => (
-                            <Checkbox
-                              key={idx}
-                              checked={checked}
-                              onCheckedChange={(checked) => {
-                                const newBei = [...player.bei];
-                                newBei[idx] = checked === true;
-                                updatePlayer(player.id, 'bei', newBei);
-                              }}
-                              className="h-4 w-4"
-                            />
-                          ))}
+                {players.map((player) => {
+                  const nameInputId = `name-${player.id}`;
+                  const exhaustionSkillInputId = `exhaustion-skill-${player.id}`;
+                  const madnessSkillInputId = `madness-skill-${player.id}`;
+
+                  return (
+                    <Card key={player.id} className="p-3">
+                      <div className="space-y-2">
+                        <div className="grid grid-cols-2 items-center gap-2">
+                          <Label htmlFor={nameInputId} className="text-sm">
+                            Имя игрока
+                          </Label>
+                          <Input
+                            id={nameInputId}
+                            type="text"
+                            value={player.name}
+                            onChange={(e) =>
+                              updatePlayer(player.id, "name", e.target.value)
+                            }
+                            className="h-8"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 items-center gap-2">
+                          <Label htmlFor={exhaustionSkillInputId} className="text-sm">
+                            Навык истощения
+                          </Label>
+                          <Textarea
+                            id={exhaustionSkillInputId}
+                            value={player.exhaustionSkill}
+                            onChange={(e) =>
+                              updatePlayer(
+                                player.id,
+                                "exhaustionSkill",
+                                e.target.value
+                              )
+                            }
+                            className="min-h-[40px] h-10 resize-none"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 items-center gap-2">
+                          <Label htmlFor={madnessSkillInputId} className="text-sm">
+                            Навык Безумия
+                          </Label>
+                          <Textarea
+                            id={madnessSkillInputId}
+                            value={player.madnessSkill}
+                            onChange={(e) =>
+                              updatePlayer(player.id, "madnessSkill", e.target.value)
+                            }
+                            className="min-h-[40px] h-10 resize-none"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 items-center gap-2">
+                          <span className="text-sm font-medium leading-none">Бей</span>
+                          <div className="flex flex-row gap-2" role="group" aria-label="Бей">
+                            {player.bei.map((checked, idx) => (
+                              <Checkbox
+                                key={`${player.id}-bei-${idx}`}
+                                aria-label={`Бей ${idx + 1}`}
+                                checked={checked}
+                                onCheckedChange={(nextChecked) =>
+                                  updatePlayerCheckbox(
+                                    player.id,
+                                    "bei",
+                                    idx,
+                                    nextChecked === true
+                                  )
+                                }
+                                className="h-4 w-4"
+                              />
+                            ))}
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 items-center gap-2">
+                          <span className="text-sm font-medium leading-none">Беги</span>
+                          <div className="flex flex-row gap-2" role="group" aria-label="Беги">
+                            {player.begi.map((checked, idx) => (
+                              <Checkbox
+                                key={`${player.id}-begi-${idx}`}
+                                aria-label={`Беги ${idx + 1}`}
+                                checked={checked}
+                                onCheckedChange={(nextChecked) =>
+                                  updatePlayerCheckbox(
+                                    player.id,
+                                    "begi",
+                                    idx,
+                                    nextChecked === true
+                                  )
+                                }
+                                className="h-4 w-4"
+                              />
+                            ))}
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          {PRIMARY_DICE_FIELDS.map(({ label, field }) => {
+                            const inputId = `${field}-dice-${player.id}`;
+
+                            return (
+                              <div key={label} className="flex items-center gap-1">
+                                <Label htmlFor={inputId} className="text-xs">
+                                  {label}
+                                </Label>
+                                <Input
+                                  id={inputId}
+                                  type="number"
+                                  min={0}
+                                  step={1}
+                                  value={player[field]}
+                                  onChange={(e) =>
+                                    updatePlayer(
+                                      player.id,
+                                      field,
+                                      parseDiceCount(e.target.value)
+                                    )
+                                  }
+                                  className="h-7 w-16"
+                                />
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          {SECONDARY_DICE_FIELDS.map(({ label, field }) => {
+                            const inputId = `${field}-dice-${player.id}`;
+
+                            return (
+                              <div key={label} className="flex items-center gap-1">
+                                <Label htmlFor={inputId} className="text-xs">
+                                  {label}
+                                </Label>
+                                <Input
+                                  id={inputId}
+                                  type="number"
+                                  min={0}
+                                  step={1}
+                                  value={player[field]}
+                                  onChange={(e) =>
+                                    updatePlayer(
+                                      player.id,
+                                      field,
+                                      parseDiceCount(e.target.value)
+                                    )
+                                  }
+                                  className="h-7 w-16"
+                                />
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <div className="flex justify-center pt-2">
+                          <Button
+                            onClick={() => calculate(player.id)}
+                            size="sm"
+                            className="w-full"
+                          >
+                            <Dice className="mr-2 h-4 w-4" />
+                            Roll Dice
+                          </Button>
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 items-center gap-2">
-                        <Label htmlFor={`begi-${player.id}`} className="text-sm">Беги</Label>
-                        <div className="flex flex-row gap-2">
-                          {player.begi.map((checked, idx) => (
-                            <Checkbox
-                              key={idx}
-                              checked={checked}
-                              onCheckedChange={(checked) => {
-                                const newBegi = [...player.begi];
-                                newBegi[idx] = checked === true;
-                                updatePlayer(player.id, 'begi', newBegi);
-                              }}
-                              className="h-4 w-4"
-                            />
-                          ))}
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        {[
-                          { label: "Дисциплина", field: "discipline" as keyof Player },
-                          { label: "Безумие", field: "madness" as keyof Player },
-                        ].map(({ label, field }) => (
-                          <div key={label} className="flex items-center gap-1">
-                            <Label htmlFor={`${field}-${player.id}`} className="text-xs">
-                              {label}
-                            </Label>
-                            <Input
-                              id={`${field}-${player.id}`}
-                              type="number"
-                              value={player[field] as number}
-                              onChange={(e) => updatePlayer(player.id, field, Math.max(0, +e.target.value))}
-                              className="h-7 w-16"
-                            />
-                          </div>
-                        ))}
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        {[
-                          { label: "Истощение", field: "exhaustion" as keyof Player },
-                          { label: "Боль", field: "pain" as keyof Player },
-                        ].map(({ label, field }) => (
-                          <div key={label} className="flex items-center gap-1">
-                            <Label htmlFor={`${field}-${player.id}`} className="text-xs">
-                              {label}
-                            </Label>
-                            <Input
-                              id={`${field}-${player.id}`}
-                              type="number"
-                              value={player[field] as number}
-                              onChange={(e) => updatePlayer(player.id, field, Math.max(0, +e.target.value))}
-                              className="h-7 w-16"
-                            />
-                          </div>
-                        ))}
-                      </div>
-                      <div className="flex justify-center pt-2">
-                        <Button
-                          onClick={() => calculate(player.id)}
-                          size="sm"
-                          className="w-full"
-                        >
-                          <Dice className="mr-2 h-4 w-4" />
-                          Roll Dice
-                        </Button>
-                      </div>
-                    </div>
-                  </Card>
-                ))}
+                    </Card>
+                  );
+                })}
           </div>
 
           <div className="lg:col-span-1">
